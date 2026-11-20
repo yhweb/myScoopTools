@@ -1,7 +1,11 @@
-# aria2 → Ghost Downloader 转译壳（Scoop 专用）
+# aria2ghost — aria2 → Ghost Downloader 转译壳（Scoop 专用）
 
 让 Scoop 内部下载（原本调用 aria2c.exe）改走 **Ghost Downloader 的官方 CLI `ghd.exe`**。
 Scoop 无需任何改动；对 Scoop 来说它仍然是一个"aria2c.exe"。
+
+本目录是 **source of truth**，同时注册为本地 bucket `mytools`，
+是 `myScoopTools` 工具套件（scoop-deepclean + aria2ghost）的源码仓库。
+打包为 `scoop install myScoopTools` 的设计见 **[PACKAGING.md](PACKAGING.md)**（设计稿，待实现）。
 
 ## 工作原理
 
@@ -14,7 +18,7 @@ scoop install/update/download
             │        ghd wait <taskId>（期间轮询 ghd task 输出进度行）
             │        ghd remove <taskId>（清任务记录，保留文件）
             ├─ 全部成功 → 退出码 0，Scoop 继续 hash 校验与安装
-            └─ 任一失败 → 自动回退 aria2c-next.exe（真 aria2-next，仅重试失败条目）
+            └─ 任一失败 → 自动回退 aria2c-next.exe（真 aria2 系二进制，仅重试失败条目）
                  └─ 仍失败 → 非 0 退出，Scoop 再回退内置 .NET 下载器
 ```
 
@@ -24,6 +28,7 @@ scoop install/update/download
 - `--split` 等 aria2 调优参数被忽略，线程数由 Ghost 自己管理；
   `--user-agent`、`--header`（Cookie）、referer 会透传给 ghd。
 - Scoop URL 尾部的 `#/文件名` 重命名语法会被剥掉后再交给 ghd。
+- `ghd add` 瞬时失败自动重试一次（3 秒间隔）。
 - `--stop-with-process`：Scoop 进程消失时壳自动退出（码 7）；
   Ghost 任务会继续下完并落入 Scoop 缓存，无害（下次安装直接命中缓存）。
 
@@ -31,22 +36,27 @@ scoop install/update/download
 
 | 位置 | 内容 |
 |---|---|
-| `D:\Scoop\aria2-ghost-shim\Aria2GhostShim.cs` | 壳源码（C#，仅依赖 .NET Framework 4.x） |
-| `D:\Scoop\aria2-ghost-shim\build.ps1` | 编译脚本（系统自带 csc） |
-| `D:\Scoop\aria2-ghost-shim\test.ps1` | 双路径测试：Ghost 引擎 + aria2-next 回退 |
-| `D:\Scoop\apps\aria2\current\aria2c.exe` | 部署的壳 |
-| `D:\Scoop\apps\aria2\current\aria2c-next.exe` | 回退引擎（aria2-next 3.1.1 快照） |
+| `E:\code\Ai_tools_plugins\aria2ghost\Aria2GhostShim.cs` | 壳源码（C#，仅依赖 .NET Framework 4.x） |
+| `E:\code\Ai_tools_plugins\aria2ghost\build.ps1` | 编译脚本（系统自带 csc） |
+| `E:\code\Ai_tools_plugins\aria2ghost\test.ps1` | 双路径测试：Ghost 引擎 + aria2 回退 |
+| `E:\code\Ai_tools_plugins\aria2ghost\aria2c.exe` | 编译产物（随 bucket 分发，需提交 git） |
+| `E:\code\Ai_tools_plugins\aria2ghost\myScoopTools.json` | 套件 manifest（现 v1.1.0，仅 deepclean） |
+| `E:\code\Ai_tools_plugins\aria2ghost\scoop-deepclean.ps1/.cmd` | 套件现有工具：一键深度清理 |
+| `D:\Scoop\apps\aria2\current\aria2c.exe` | 已部署的壳 |
+| `D:\Scoop\apps\aria2\current\aria2c-next.exe` | 回退引擎快照（当前为 aria2-next 3.1.1） |
 
 ghd.exe 定位顺序：环境变量 `GHD_CLI` → `apps\Ghost-Downloader-portable\current\bin\ghd.exe`
 （按壳自身位置推导）→ 最新版本目录。Ghost 升级后无需改壳。
 
-## 构建 / 测试 / 部署
+## 构建 / 测试 / 手动部署
 
 ```powershell
-pwsh -File D:\Scoop\aria2-ghost-shim\build.ps1     # 编译
-pwsh -File D:\Scoop\aria2-ghost-shim\test.ps1      # 测试（真实下载小文件）
-Copy-Item D:\Scoop\aria2-ghost-shim\aria2c.exe D:\Scoop\apps\aria2\current\aria2c.exe -Force
+pwsh -File E:\code\Ai_tools_plugins\aria2ghost\build.ps1   # 编译
+pwsh -File E:\code\Ai_tools_plugins\aria2ghost\test.ps1    # 测试（真实下载小文件）
+Copy-Item E:\code\Ai_tools_plugins\aria2ghost\aria2c.exe D:\Scoop\apps\aria2\current\aria2c.exe -Force
 ```
+
+打包完成后以上手动步骤由 `scoop install/update myScoopTools` 自动完成（见 PACKAGING.md）。
 
 ## 还原为纯 aria2-next
 
@@ -63,6 +73,123 @@ Copy-Item D:\Scoop\apps\aria2\current\aria2c-next.exe D:\Scoop\apps\aria2\curren
 - `aria2c-next.exe` 是快照：`scoop update aria2-next` 升级后如需同步回退引擎，
   重新复制 `apps\aria2-next\current\aria2-next.exe` 过来即可。
 - Ghost 的 BT/磁力能力天然可用；metalink 等 Ghost 不支持的协议会经回退链
-  由 aria2-next 处理。
+  由 aria2 系引擎处理。
 - 下载记录：壳完成后会 `ghd remove` 清理任务列表，Ghost 界面里不会堆积
   Scoop 的下载条目；文件保留在 Scoop 缓存目录。
+
+---
+
+# scoop-deepclean — scoop 一键深度清理工具
+
+> 本仓库同时是本地 scoop bucket `mytools` 的源，工具以 `myScoopTools` 之名可被 scoop 安装。
+> 上半部分是 aria2→Ghost 转译壳的文档，本部分描述清理工具。
+
+## 功能说明
+
+一条命令完成三层清理，逻辑直接复制自 scoop 官方脚本（`libexec/scoop-cleanup.ps1`、`libexec/scoop-cache.ps1`），并增强占用处理：
+
+| 阶段 | 内容 | 交互 |
+|---|---|---|
+| 1/3 | `scoop cleanup *`：删除所有应用的旧版本目录 | 自动；遇文件占用时询问 |
+| 2/3 | `scoop cache rm *`：清空下载缓存（含 `.txt` url 记录） | 自动；遇文件占用时询问 |
+| 3/3 | `bun pm cache rm` → `uv cache clean` → `pnpm store prune` | **逐项确认：回车=执行 / s=跳过 / q=结束后续** |
+
+### 占用处理（阶段 1/2）
+
+删除失败时，用 **Windows Restart Manager**（系统"文件正在使用"对话框同款 API）+ exe 路径扫描定位占用进程，列出 PID / 名称 / 路径后询问：
+
+```
+是否结束上述进程并重试删除? [y/N]
+```
+
+- **默认 N**（直接回车=不结束、跳过该项），输入 y 才结束进程并重试，最多 3 次
+- 能识别三类占用：exe 在旧版本目录内运行、加载了目录内 DLL、独占打开目录内文件（含工作目录占用）
+- 无法定位时跳过并提示用资源监视器排查，不会盲杀
+
+### uv 缓存锁特判（阶段 3）
+
+`uv run` / `uvx` 等长驻进程会持有 uv 缓存锁，直接 `uv cache clean` 会无限等待
+（`Cache is currently in-use, waiting for other uv processes to finish`）。
+脚本检测到运行中的 uv 进程时，列出其 PID 与完整命令行，并给出三选一：
+
+```
+s=跳过(默认，直接回车) / f=强制清理(--force，可能影响运行中的 uv 任务) / w=等待执行(阻塞到进程退出)
+```
+
+开发服务（如 uvicorn）在跑时直接回车跳过即可，停掉服务后再清。
+
+### 预览模式
+
+```powershell
+scoop-deepclean -DryRun   # 只统计将清理的内容与体积，不删除、不询问、不执行
+```
+
+## 安全设计
+
+- **当前版本判定**与官方一致：读 `current\scoop-manifest.json`（nightly 取 junction 目标），回退 `install.json` 时间排序；无法确定当前版本的应用**整个跳过**，绝不误删在用版本
+- **删除前先解除 persist 链接**（官方 `unlink_persist_data` 逻辑），用户数据目录不受影响
+- 体积统计不跟随 junction，避免把 persist 数据算进"可释放"
+- 结束进程默认 N；只针对占用目标目录的进程，不碰其他进程
+- 脚本兼容 Windows PowerShell 5.1 与 pwsh 7（推荐 pwsh 7，junction 删除行为更安全）
+
+## 文件清单
+
+| 文件 | 作用 |
+|---|---|
+| `scoop-deepclean.ps1` | 主脚本（唯一事实来源） |
+| `scoop-deepclean.cmd` | 手动部署用的 cmd 包装器（scoop 安装后由官方 shim 取代，可不用） |
+| `myScoopTools.json` | scoop manifest（本地 bucket `mytools` 的根 manifest） |
+
+## 作为 scoop 应用安装（myScoopTools）
+
+本地 bucket 已注册：`mytools` → `file:///E:/code/Ai_tools_plugins/aria2ghost`（git 仓库）。
+
+```powershell
+scoop install myScoopTools     # 按名称安装，生成 scoop-deepclean 命令（cmd/pwsh 通用）
+scoop uninstall myScoopTools   # 卸载
+```
+
+**从手动 shim 切换到 scoop 管理**（当前 D:\Scoop\shims 里是手动放置的版本）：
+
+```powershell
+Remove-Item D:\Scoop\shims\scoop-deepclean.ps1, D:\Scoop\shims\scoop-deepclean.cmd
+scoop install myScoopTools
+```
+
+### manifest 工作原理
+
+- `url` 用 `file:///` 指向本仓库的 ps1：满足 scoop 的架构校验（必须有 url）；
+  aria2 不支持 file 协议会失败，scoop 默认开启回退（`ARIA2-FALLBACK-ENABLED`），
+  经 aria2-next / 内置 .NET 下载器完成本地复制。**安装时的 aria2 报错与回退警告属正常现象**
+- 未写 hash（开发期脚本频繁变动）；scoop 会提示实际 SHA256，稳定后可补进 manifest
+- `pre_install` 从 bucket 目录补拷 cmd 包装器；`bin` 生成官方 shim（pwsh 优先、powershell 兜底）
+
+### 更新流程
+
+```powershell
+# 1. 编辑 scoop-deepclean.ps1，bump myScoopTools.json 的 version
+# 2. 提交并同步 bucket 克隆
+git -C E:\code\Ai_tools_plugins\aria2ghost add -A
+git -C E:\code\Ai_tools_plugins\aria2ghost commit -m "update"
+git -C D:\Scoop\buckets\mytools pull        # 或 scoop update（会更新全部 bucket）
+# 3. 更新应用
+scoop update myScoopTools
+# 不 bump 版本的快速刷新（强制+忽略缓存）：
+scoop update myScoopTools -f -k
+```
+
+### 以后发布到 GitHub
+
+把仓库推到 GitHub 后，将 manifest 的 `url` 换成 release 资产或 archive 地址并补 hash，
+即可在任意机器 `scoop bucket add mytools <github-url>` + `scoop install myScoopTools`。
+
+## 验证记录
+
+| 轮次 | 内容 | 结果 |
+|---|---|---|
+| 1 | 语法解析 + DryRun 预览 | 通过：正确枚举旧版本/缓存，零删除 |
+| 2 | 真实独占锁：答 N / 答 Y / 路径已消失 | 通过：N 跳过保进程；Y 定位→结束→删除成功；幂等 |
+| 3 | cmd 完整真实运行 | 通过：释放 205.3MB，逐项确认正确 |
+| 4 | pwsh 重跑（幂等）+ q 退出 | 通过：已干净、当前版本完好 |
+| 5 | uv 锁检测真实环境实测 | 通过：列出 2 个 uv run 进程，默认跳过不再卡死 |
+| 6 | 隔离 SCOOP 根目录：bucket 注册→按名安装→shim 运行→卸载 | 通过：全流程正常，不污染真实环境 |

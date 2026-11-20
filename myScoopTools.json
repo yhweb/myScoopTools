@@ -7,10 +7,11 @@
         "Command: scoop-deepclean  (preview: scoop-deepclean -DryRun)",
         "Source of truth: E:\\code\\Ai_tools_plugins\\aria2ghost",
         "Local file:// URL: aria2 will warn and fall back to the built-in downloader (normal).",
-        "After editing scripts: bump version + git commit + 'scoop update mytools' + 'scoop update myScoopTools'."
+        "After editing scripts: bump version + git commit + refresh bucket (git pull / scoop update) + 'scoop update myScoopTools'.",
+        "Quick refresh without version bump: 'scoop update myScoopTools -f -k'."
     ],
     "pre_install": [
-        "$src = if ($bucket) { bucketdir $bucket } else { Split-Path $url -Parent }",
+        "$src = if ($bucket) { Find-BucketDirectory $bucket } else { Split-Path $url -Parent }",
         "if (Test-Path \"$src\\scoop-deepclean.cmd\") { Copy-Item \"$src\\scoop-deepclean.cmd\" \"$dir\\scoop-deepclean.cmd\" -Force }"
     ],
     "bin": "scoop-deepclean.ps1"
