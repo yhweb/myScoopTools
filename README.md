@@ -5,7 +5,7 @@ Scoop 无需任何改动；对 Scoop 来说它仍然是一个"aria2c.exe"。
 
 本目录是 **source of truth**，同时注册为本地 bucket `mytools`，
 是 `myScoopTools` 工具套件（scoop-deepclean + aria2ghost）的源码仓库。
-打包为 `scoop install myScoopTools` 的设计见 **[PACKAGING.md](PACKAGING.md)**（设计稿，待实现）。
+打包设计与实现记录见 **[PACKAGING.md](PACKAGING.md)**（v1.2.0 已实现，模拟测试通过）。
 
 ## 工作原理
 
@@ -38,10 +38,11 @@ scoop install/update/download
 |---|---|
 | `E:\code\Ai_tools_plugins\aria2ghost\Aria2GhostShim.cs` | 壳源码（C#，仅依赖 .NET Framework 4.x） |
 | `E:\code\Ai_tools_plugins\aria2ghost\build.ps1` | 编译脚本（系统自带 csc） |
-| `E:\code\Ai_tools_plugins\aria2ghost\test.ps1` | 双路径测试：Ghost 引擎 + aria2 回退 |
+| `E:\code\Ai_tools_plugins\aria2ghost\test.ps1` | 三路径测试：Ghost 引擎 + aria2 回退 + file:// 本地复制 |
 | `E:\code\Ai_tools_plugins\aria2ghost\aria2c.exe` | 编译产物（随 bucket 分发，需提交 git） |
-| `E:\code\Ai_tools_plugins\aria2ghost\myScoopTools.json` | 套件 manifest（现 v1.1.0，仅 deepclean） |
+| `E:\code\Ai_tools_plugins\aria2ghost\myScoopTools.json` | 套件 manifest（v1.2.0：deepclean + aria2ghost） |
 | `E:\code\Ai_tools_plugins\aria2ghost\scoop-deepclean.ps1/.cmd` | 套件现有工具：一键深度清理 |
+| `E:\code\Ai_tools_plugins\aria2ghost\scoop-aria2ghost.ps1/.cmd` | 下载引擎管理命令（status/deploy/restore） |
 | `D:\Scoop\apps\aria2\current\aria2c.exe` | 已部署的壳 |
 | `D:\Scoop\apps\aria2\current\aria2c-next.exe` | 回退引擎快照（当前为 aria2-next 3.1.1） |
 
@@ -56,11 +57,14 @@ pwsh -File E:\code\Ai_tools_plugins\aria2ghost\test.ps1    # 测试（真实下�
 Copy-Item E:\code\Ai_tools_plugins\aria2ghost\aria2c.exe D:\Scoop\apps\aria2\current\aria2c.exe -Force
 ```
 
-打包完成后以上手动步骤由 `scoop install/update myScoopTools` 自动完成（见 PACKAGING.md）。
+以上手动步骤已由 `scoop install/update myScoopTools` 自动完成（v1.2.0）；手动命令保留供开发调试。
 
 ## 还原为纯 aria2-next
 
 ```powershell
+scoop-aria2ghost restore     # 推荐：还原引擎（保留备份）；deploy 重新部署壳
+scoop-aria2ghost status      # 查看引擎/回退/hold/ghd 状态
+# 或手动：
 Copy-Item D:\Scoop\apps\aria2\current\aria2c-next.exe D:\Scoop\apps\aria2\current\aria2c.exe -Force
 ```
 
@@ -145,11 +149,13 @@ scoop-deepclean -DryRun   # 只统计将清理的内容与体积，不删除、�
 本地 bucket 已注册：`mytools` → `file:///E:/code/Ai_tools_plugins/aria2ghost`（git 仓库）。
 
 ```powershell
-scoop install myScoopTools     # 按名称安装，生成 scoop-deepclean 命令（cmd/pwsh 通用）
-scoop uninstall myScoopTools   # 卸载
+scoop install myScoopTools     # 按名称安装：scoop-deepclean + scoop-aria2ghost 命令，自动部署下载壳
+scoop uninstall myScoopTools   # 卸载：自动还原原 aria2 引擎
+scoop-aria2ghost status        # 查看下载引擎/回退/hold/ghd 状态
+scoop-aria2ghost restore       # 临时还原原引擎；deploy 重新部署壳
 ```
 
-**从手动 shim 切换到 scoop 管理**（当前 D:\Scoop\shims 里是手动放置的版本）：
+**从手动 shim 切换到 scoop 管理**（已完成切换，D:\Scoop\shims 里现为官方 shim）：
 
 ```powershell
 Remove-Item D:\Scoop\shims\scoop-deepclean.ps1, D:\Scoop\shims\scoop-deepclean.cmd
@@ -158,11 +164,13 @@ scoop install myScoopTools
 
 ### manifest 工作原理
 
-- `url` 用 `file:///` 指向本仓库的 ps1：满足 scoop 的架构校验（必须有 url）；
-  aria2 不支持 file 协议会失败，scoop 默认开启回退（`ARIA2-FALLBACK-ENABLED`），
-  经 aria2-next / 内置 .NET 下载器完成本地复制。**安装时的 aria2 报错与回退警告属正常现象**
-- 未写 hash（开发期脚本频繁变动）；scoop 会提示实际 SHA256，稳定后可补进 manifest
-- `pre_install` 从 bucket 目录补拷 cmd 包装器；`bin` 生成官方 shim（pwsh 优先、powershell 兜底）
+- `url` 是 https 占位 payload（dsh bucket 的 Ghost manifest，`#/` 重命名为 scoop-deepclean.ps1）：
+  满足 scoop 的架构校验（必须有 url）。**原 file:/// 方案已废弃**——实测官方 aria2 与 aria2-next
+  都会"跳过不支持的协议且返回退出码 0"，Scoop 回退不触发，空缓存的干净首装必崩（PACKAGING.md §10）。
+  payload 内容无关紧要，`pre_install` 会用 bucket 里的真实脚本覆盖
+- 未写 hash（开发期脚本频繁变动，payload 也随 dsh 更新变化）；scoop 会提示实际 SHA256
+- `pre_install` 从 bucket 复制全部工具文件；`bin` 为两个命令生成官方 shim（pwsh 优先、powershell 兜底）
+- `post_install` 自动部署 aria2ghost 下载壳并 hold aria2；`pre_uninstall` 自动还原原引擎
 
 ### 更新流程
 
@@ -193,3 +201,16 @@ scoop update myScoopTools -f -k
 | 4 | pwsh 重跑（幂等）+ q 退出 | 通过：已干净、当前版本完好 |
 | 5 | uv 锁检测真实环境实测 | 通过：列出 2 个 uv run 进程，默认跳过不再卡死 |
 | 6 | 隔离 SCOOP 根目录：bucket 注册→按名安装→shim 运行→卸载 | 通过：全流程正常，不污染真实环境 |
+
+## aria2ghost 合并模拟测试记录（v1.2.0，2026-11-21）
+
+| 轮次 | 内容 | 结果 |
+|---|---|---|
+| 1 | 最严苛首装：无壳 + aria2-next 引擎下 `scoop install myScoopTools` | https payload 由 aria2-next 正常下载，post_install 自动备份+部署壳+hold ✓ |
+| 2 | `scoop install jq` 全新安装（卸载+清缓存后） | `[ghost-shim] engine: Ghost Downloader CLI`，进度可见，hash OK，jq 可运行；Ghost 日志见分片直写 `D:\Scoop\cache\jq#…exe` ✓ |
+| 3 | `scoop-deepclean -DryRun` | shim 识别正常（`D:\Scoop\shims\`），正确枚举缓存与开发工具缓存，零删除 ✓ |
+| 4 | 卸载→重装往返 | pre_uninstall 还原 aria2-next；重装成功并重新部署壳（修复 file:// 坑后通过）✓ |
+| 5 | 回退 / restore / deploy / update -f -k | 全部通过（详见 PACKAGING.md §8/§10）✓ |
+
+关键修正：file:// url 在所有 aria2 引擎下"跳过且返回 0"，Scoop 回退不触发导致干净首装崩溃；
+已改为 https 占位 payload（PACKAGING.md §10 有完整实测证据与测试矩阵）。
