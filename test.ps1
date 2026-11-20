@@ -60,4 +60,24 @@ if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $f)) {
     "PASS: fallback downloaded, $((Get-Item -LiteralPath $f).Length) bytes"
 } else { 'FAIL'; exit 1 }
 
+'=== TEST 3: file:// local copy (myScoopTools manifest pattern) ==='
+$env:GHD_CLI = $ghd
+$localSrc = Join-Path $td 'local-source.txt'
+'hello ghost shim' | Set-Content -LiteralPath $localSrc -Encoding utf8NoBOM
+$fileUrl = 'file:///' + ($localSrc -replace '\\', '/')
+$outName3 = 'testapp#1.0#file___local'
+$inputFile3 = Join-Path $td 'testapp3.txt'
+@"
+$fileUrl
+    dir=$td
+    out=$outName3
+"@ | Set-Content -LiteralPath $inputFile3 -Encoding utf8NoBOM
+$args3 = @("--input-file=$inputFile3", "--stop-with-process=$PID")
+& $shim @args3
+"exit=$LASTEXITCODE"
+$f3 = Join-Path $td $outName3
+if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $f3)) {
+    "PASS: local copy, $((Get-Item -LiteralPath $f3).Length) bytes"
+} else { 'FAIL'; exit 1 }
+
 'ALL TESTS PASSED'

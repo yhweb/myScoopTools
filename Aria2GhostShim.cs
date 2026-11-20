@@ -143,6 +143,22 @@ static class Aria2GhostShim
         {
             Directory.CreateDirectory(e.Dir);
 
+            // file:/// URLs (e.g. local-bucket manifests): plain local copy,
+            // no download engine involved. Keeps 'scoop install myScoopTools'
+            // clean instead of relying on the aria2 fallback chain.
+            if (e.Url.StartsWith("file:///", StringComparison.OrdinalIgnoreCase))
+            {
+                string local = Uri.UnescapeDataString(e.Url.Substring(8)).Replace('/', '\\');
+                if (!File.Exists(local))
+                {
+                    Console.WriteLine("(ERR):local file not found: " + local);
+                    return false;
+                }
+                File.Copy(local, Path.Combine(e.Dir, e.Out), true);
+                Console.WriteLine("(OK):local file copied. " + e.Out);
+                return true;
+            }
+
             List<string> addArgs = new List<string>();
             addArgs.Add("add"); addArgs.Add(e.Url);
             addArgs.Add("-o"); addArgs.Add(e.Dir);

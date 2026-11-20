@@ -1,18 +1,30 @@
 {
-    "version": "1.1.0",
-    "description": "My Scoop Tools - scoop-deepclean: one-click deep cleanup (scoop cleanup * + scoop cache rm * + bun/uv/pnpm cache with per-item confirmation; prompts to kill locking processes; uv cache-lock aware).",
+    "version": "1.2.0",
+    "description": "My Scoop Tools - scoop-deepclean: one-click deep cleanup (scoop cleanup * + scoop cache rm * + bun/uv/pnpm cache with per-item confirmation; prompts to kill locking processes; uv cache-lock aware). aria2ghost: routes Scoop's aria2 downloads through Ghost Downloader CLI (ghd) with automatic aria2 fallback; manage via scoop-aria2ghost status|deploy|restore.",
     "license": "MIT",
+    "depends": "aria2",
     "url": "file:///E:/code/Ai_tools_plugins/aria2ghost/scoop-deepclean.ps1",
     "notes": [
-        "Command: scoop-deepclean  (preview: scoop-deepclean -DryRun)",
+        "Commands: scoop-deepclean (-DryRun) | scoop-aria2ghost status|deploy|restore",
+        "aria2ghost: Scoop downloads go through Ghost Downloader CLI (ghd.exe); without Ghost they fall back to the backed-up aria2 engine automatically.",
+        "The file:// URL is copied locally by the ghost-shim (clean install); without the shim, aria2 warns and Scoop's built-in downloader handles it (normal).",
+        "aria2 is held after install to protect the shim; after 'scoop unhold aria2' + update, run 'scoop-aria2ghost deploy' to repair.",
         "Source of truth: E:\\code\\Ai_tools_plugins\\aria2ghost",
-        "Local file:// URL: aria2 will warn and fall back to the built-in downloader (normal).",
-        "After editing scripts: bump version + git commit + refresh bucket (git pull / scoop update) + 'scoop update myScoopTools'.",
-        "Quick refresh without version bump: 'scoop update myScoopTools -f -k'."
+        "After editing: build.ps1 -> test.ps1 -> bump version -> git commit -> git -C D:\\Scoop\\buckets\\mytools pull -> scoop update myScoopTools (quick refresh: -f -k)."
     ],
     "pre_install": [
         "$src = if ($bucket) { Find-BucketDirectory $bucket } else { Split-Path $url -Parent }",
-        "if (Test-Path \"$src\\scoop-deepclean.cmd\") { Copy-Item \"$src\\scoop-deepclean.cmd\" \"$dir\\scoop-deepclean.cmd\" -Force }"
+        "foreach ($f in 'scoop-deepclean.cmd','scoop-aria2ghost.ps1','scoop-aria2ghost.cmd','aria2c.exe') { if (!(Test-Path \"$src\\$f\")) { abort \"Source missing: $src\\$f\" } }",
+        "Copy-Item -Path \"$src\\scoop-deepclean.cmd\",\"$src\\scoop-aria2ghost.ps1\",\"$src\\scoop-aria2ghost.cmd\",\"$src\\aria2c.exe\" -Destination $dir -Force"
     ],
-    "bin": "scoop-deepclean.ps1"
+    "post_install": [
+        "& \"$dir\\scoop-aria2ghost.cmd\" deploy"
+    ],
+    "pre_uninstall": [
+        "& \"$dir\\scoop-aria2ghost.cmd\" restore"
+    ],
+    "bin": [
+        "scoop-deepclean.ps1",
+        "scoop-aria2ghost.ps1"
+    ]
 }
