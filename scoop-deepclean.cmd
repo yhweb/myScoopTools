@@ -1,0 +1,8 @@
+@echo off
+rem scoop-deepclean wrapper: prefer pwsh 7, fallback to Windows PowerShell
+where pwsh >nul 2>nul
+if %errorlevel%==0 (
+    pwsh -NoProfile -ExecutionPolicy Bypass -File "%~dp0scoop-deepclean.ps1" %*
+) else (
+    powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scoop-deepclean.ps1" %*
+)
