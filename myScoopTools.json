@@ -5,7 +5,7 @@
     "license": "MIT",
     "depends": "aria2",
     "url": "https://github.com/yhweb/myScoopTools/releases/download/v1.3.0/myScoopTools-1.3.0.zip",
-    "hash": "PLACEHOLDER",
+    "hash": "7b8a20e4ca6000b3c35f9bfc7bbb98f8fd1bb8cc6dbbd5b3fdba9fefd208612b",
     "notes": [
         "Commands: scoop-deepclean (-DryRun) | scoop-aria2ghost status|deploy|restore",
         "aria2ghost: Scoop downloads go through Ghost Downloader CLI (ghd.exe); without Ghost they fall back to the backed-up aria2 engine automatically.",
