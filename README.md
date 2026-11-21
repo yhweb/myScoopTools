@@ -7,6 +7,10 @@ Scoop 无需任何改动；对 Scoop 来说它仍然是一个"aria2c.exe"。
 是 `myScoopTools` 工具套件（scoop-deepclean + aria2ghost）的源码仓库。
 打包设计与实现记录见 **[PACKAGING.md](PACKAGING.md)**（v1.2.0 已实现，模拟测试通过）。
 
+## v1.3.3 修复（2026-11-21）
+
+- `scoop-deepclean.ps1`：`pnpm store prune` 前先解析真实 store 路径（`pnpm store path`），若 `\<store>\files` 不存在就直接跳过并说明原因。此前在 store 尚未创建（首次使用）或 pnpm 大版本不一致时（例如 scoop 的 pnpm 12 用 `store\v11`、nvm 里的 pnpm 9 用 `.pnpm-store\v3`），pnpm 会对不存在的路径 readdir 抛 ENOENT 并以退出码 38 结束，看起来像故障。现在按「无内容可清」处理，退出码 38 也只提示、不计为失败。
+- 新增 `Get-NativeLastLine`：`$ErrorActionPreference=Stop` 下原生命令（pnpm/bun/uv）写 stderr 会抛 NativeCommandError，探测时临时降为 Continue 并吞掉异常。
 ## v1.3.2 修复（2026-11-21）
 
 - `scoop-aria2ghost.ps1`：新增 `Get-NativeFirstLine`，探测 `aria2c --version` / `ghd --version` 时把 `$ErrorActionPreference` 临时降为 `Continue` 并吞掉原生 stderr。此前若被探测的 exe 往 stderr 写东西（例如 ghd 的 Python 回溯），`$ErrorActionPreference='Stop'` 会把 `NativeCommandError` 变成终止错误，导致 `scoop-aria2ghost status` 直接退出 1；现在降级为提示「found but not runnable」。

@@ -40,6 +40,19 @@ function Write-Ok($msg)    { Write-Host $msg -ForegroundColor Green }
 function Write-Warn2($msg) { Write-Host $msg -ForegroundColor Yellow }
 function Write-Err2($msg)  { Write-Host $msg -ForegroundColor Red }
 
+# 原生程序只取最后一行有效输出：$ErrorActionPreference=Stop 下原生命令写 stderr 会抛
+# NativeCommandError（pnpm/bun/uv 都会往 stderr 打警告），故临时降级并吞掉异常。
+function Get-NativeLastLine([string]$Exe, [string[]]$Arguments) {
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $out = & $Exe @Arguments 2>&1
+        $lines = @($out | Where-Object { $_ -is [string] } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        if (-not $lines.Count) { return "" }
+        return [string]$lines[$lines.Count - 1]
+    } catch { return '' } finally { $ErrorActionPreference = $prev }
+}
+
 function Get-DirSize([string]$Path) {
     if (-not (Test-Path -LiteralPath $Path)) { return [long]0 }
     $item = Get-Item -LiteralPath $Path -Force
@@ -318,6 +331,24 @@ function Invoke-OptionalSteps {
         if (-not $cmd) { Write-Warn2 "未找到 $($s.Exe) 命令，跳过（$full）"; continue }
         if ($DryRun) { Write-Host "  [预览] $full  —— $($s.Desc)"; continue }
 
+        # pnpm 特判：pnpm 的 store 目录未必存在。首次使用（或换了 pnpm 大版本，
+        # store 版本号不同，如 scoop pnpm 用 v11、nvm 里的 pnpm 9 用 v3）时，
+        # `pnpm store prune` 会 readdir 不存在的 <store>\files 而抛 ENOENT、退出码 38。
+        # 这种情况下本就没有可清理内容，先解析真实 store 路径再决定是否执行。
+        if ($s.Name -eq 'pnpm') {
+            $storePath = Get-NativeLastLine $cmd.Source @('store', 'path')
+            if (-not $storePath) {
+                Write-Warn2 '已跳过：pnpm store prune（pnpm store path 无输出，无法定位 store）'
+                continue
+            }
+            $storeFiles = Join-Path $storePath "files"
+            if (-not (Test-Path -LiteralPath $storeFiles)) {
+                Write-Warn2 "已跳过：pnpm store prune —— store 尚未创建或为空（$storePath），无需清理"
+                continue
+            }
+            Write-Host "  pnpm store: $storePath"
+        }
+
         $runArgs = @($s.Args)
         $skipConfirm = $false
         # uv 特判：uv run / uvx 等长驻进程会持有缓存锁，
@@ -354,7 +385,9 @@ function Invoke-OptionalSteps {
         Write-Info "执行：$($s.Exe) $($runArgs -join ' ')"
         try {
             & $cmd.Source @runArgs
-            if ($LASTEXITCODE -eq 0) { Write-Ok "完成：$full" } else { Write-Warn2 "$full 退出码 $LASTEXITCODE" }
+            if ($LASTEXITCODE -eq 0) { Write-Ok "完成：$full" }
+            elseif ($s.Name -eq 'pnpm' -and $LASTEXITCODE -eq 38) { Write-Warn2 'pnpm store prune 退出码 38（store 为空或不存在，无内容可清），不计为故障' }
+            else { Write-Warn2 "$full 退出码 $LASTEXITCODE" }
         } catch { Write-Err2 "执行失败：$($_.Exception.Message)" }
     }
 }

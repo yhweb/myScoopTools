@@ -1,5 +1,6 @@
 # myScoopTools 打包设计文档 — aria2ghost 并入套件
 
+> v1.3.3（2026-11-21）：scoop-deepclean 的 pnpm store prune 增加 store 存在性预检（避免 exit 38）；release 资产形态不变。
 > v1.3.1（2026-11-21）：脚本空环境变量与退出码修复；release 资产形态不变。
 > 状态：**已实现（v1.2.0）· 模拟测试通过** · 2026-11-20 设计 / 2026-11-21 修正
 > 重要修正：file:// url 方案被模拟测试证伪（aria2 静默跳过仍返回 0），
