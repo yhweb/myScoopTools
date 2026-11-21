@@ -1,22 +1,17 @@
 {
-    "version": "1.2.0",
-    "##": "Scoop requires a non-empty url (Get-SupportedArchitecture). aria2 (official 1.37 AND aria2-next) exits 0 on unsupported file:// URIs without downloading anything, so Scoop's fallback never triggers and clean installs crash on the missing cache file. Therefore the url is a tiny, stable https payload (the Ghost manifest from the user's dsh bucket; its content is irrelevant) renamed to scoop-deepclean.ps1; pre_install then overwrites it with the real script copied from the bucket. Works with every engine: official aria2 / aria2-next / ghost-shim / built-in.",
+    "version": "1.3.0",
     "description": "My Scoop Tools - scoop-deepclean: one-click deep cleanup (scoop cleanup * + scoop cache rm * + bun/uv/pnpm cache with per-item confirmation; prompts to kill locking processes; uv cache-lock aware). aria2ghost: routes Scoop's aria2 downloads through Ghost Downloader CLI (ghd) with automatic aria2 fallback; manage via scoop-aria2ghost status|deploy|restore.",
+    "homepage": "https://github.com/yhweb/myScoopTools",
     "license": "MIT",
     "depends": "aria2",
-    "url": "https://raw.githubusercontent.com/yhweb/scoop-dsh/main/bucket/Ghost-Downloader-portable.json#/scoop-deepclean.ps1",
+    "url": "https://github.com/yhweb/myScoopTools/releases/download/v1.3.0/myScoopTools-1.3.0.zip",
+    "hash": "PLACEHOLDER",
     "notes": [
         "Commands: scoop-deepclean (-DryRun) | scoop-aria2ghost status|deploy|restore",
         "aria2ghost: Scoop downloads go through Ghost Downloader CLI (ghd.exe); without Ghost they fall back to the backed-up aria2 engine automatically.",
-        "The https url is only a dummy payload to satisfy Scoop's architecture check (file:// breaks aria2 silently); real tools are copied from the bucket by pre_install.",
-        "aria2 is held after install to protect the shim; after 'scoop unhold aria2' + update, run 'scoop-aria2ghost deploy' to repair.",
-        "Source of truth: E:\\code\\Ai_tools_plugins\\aria2ghost",
-        "After editing: build.ps1 -> test.ps1 -> bump version -> git commit -> git -C D:\\Scoop\\buckets\\mytools pull -> scoop update myScoopTools (quick refresh: -f -k)."
-    ],
-    "pre_install": [
-        "$src = if ($bucket) { Find-BucketDirectory $bucket } else { Split-Path $url -Parent }",
-        "foreach ($f in 'scoop-deepclean.ps1','scoop-deepclean.cmd','scoop-aria2ghost.ps1','scoop-aria2ghost.cmd','aria2c.exe') { if (!(Test-Path \"$src\\$f\")) { abort \"Source missing: $src\\$f\" } }",
-        "Copy-Item -Path \"$src\\scoop-deepclean.ps1\",\"$src\\scoop-deepclean.cmd\",\"$src\\scoop-aria2ghost.ps1\",\"$src\\scoop-aria2ghost.cmd\",\"$src\\aria2c.exe\" -Destination $dir -Force"
+        "Install deploys the shim into apps\\aria2\\current\\aria2c.exe (original engine backed up as aria2c-next.exe) and holds aria2; uninstall restores it.",
+        "aria2 is held after install to protect the shim; after \"scoop unhold aria2\" + update, run \"scoop-aria2ghost deploy\" to repair.",
+        "Requires Ghost Downloader for the fast path: scoop install Ghost-Downloader-portable (dsh bucket)."
     ],
     "post_install": [
         "& \"$dir\\scoop-aria2ghost.cmd\" deploy"
@@ -25,7 +20,23 @@
         "& \"$dir\\scoop-aria2ghost.cmd\" restore"
     ],
     "bin": [
-        "scoop-deepclean.ps1",
-        "scoop-aria2ghost.ps1"
-    ]
+        [
+            "scoop-deepclean.ps1",
+            "scoop-deepclean"
+        ],
+        [
+            "scoop-aria2ghost.ps1",
+            "scoop-aria2ghost"
+        ]
+    ],
+    "checkver": {
+        "github": "https://github.com/yhweb/myScoopTools"
+    },
+    "autoupdate": {
+        "url": "https://github.com/yhweb/myScoopTools/releases/download/v$version/myScoopTools-$version.zip",
+        "hash": {
+            "url": "https://github.com/yhweb/myScoopTools/releases/download/v$version/myScoopTools-$version.zip.sha256",
+            "regex": "^([a-fA-F0-9]{64})"
+        }
+    }
 }

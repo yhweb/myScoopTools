@@ -1,2 +1,3 @@
 # 回退引擎快照（18MB 测试产物，deploy 时从在装 aria2 现场备份，不随包分发）
 aria2c-next.exe
+.local/
