@@ -26,8 +26,9 @@ param([switch]$DryRun)
 $ErrorActionPreference = 'Stop'
 
 # ---------- 路径解析（与 scoop core.ps1 一致） ----------
-$script:ScoopRoot = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE 'scoop' }
-$script:CfgFile   = Join-Path $env:USERPROFILE '.config\scoop\config.json'
+$script:HomeDir   = if ($env:USERPROFILE) { $env:USERPROFILE } else { [System.Environment]::GetFolderPath('UserProfile') }
+$script:ScoopRoot = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $script:HomeDir 'scoop' }
+$script:CfgFile   = Join-Path $script:HomeDir '.config\scoop\config.json'
 $script:Cfg       = if (Test-Path $script:CfgFile) { try { Get-Content $script:CfgFile -Raw | ConvertFrom-Json } catch { $null } } else { $null }
 $script:AppsDir   = Join-Path $script:ScoopRoot 'apps'
 $script:CacheDir  = if ($env:SCOOP_CACHE) { $env:SCOOP_CACHE } elseif ($script:Cfg -and $script:Cfg.cachePath) { $script:Cfg.cachePath } else { Join-Path $script:ScoopRoot 'cache' }

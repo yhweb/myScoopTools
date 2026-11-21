@@ -28,13 +28,17 @@ function Write-Warn2($msg) { Write-Host $msg -ForegroundColor Yellow }
 function Write-Err2($msg)  { Write-Host $msg -ForegroundColor Red }
 
 # ---------- 路径解析 ----------
-$script:CfgFile = Join-Path $env:USERPROFILE '.config\scoop\config.json'
+$script:HomeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { [System.Environment]::GetFolderPath('UserProfile') }
+$script:CfgFile = Join-Path $script:HomeDir '.config\scoop\config.json'
 $script:Cfg = if (Test-Path $script:CfgFile) { try { Get-Content $script:CfgFile -Raw | ConvertFrom-Json } catch { $null } } else { $null }
 $script:ScoopRoot = if ($env:SCOOP) { $env:SCOOP }
     elseif ($script:Cfg -and $script:Cfg.rootPath) { $script:Cfg.rootPath }
     elseif ($script:Cfg -and $script:Cfg.root_path) { $script:Cfg.root_path }
-    else { Join-Path $env:USERPROFILE 'scoop' }
-$script:GlobalRoot = if ($env:SCOOP_GLOBAL) { $env:SCOOP_GLOBAL } else { Join-Path $env:ProgramData 'scoop' }
+    else { Join-Path $script:HomeDir 'scoop' }
+$script:GlobalRoot = if ($env:SCOOP_GLOBAL) { $env:SCOOP_GLOBAL }
+    elseif ($env:ProgramData) { Join-Path $env:ProgramData 'scoop' }
+    elseif ($env:ALLUSERSPROFILE) { Join-Path $env:ALLUSERSPROFILE 'scoop' }
+    else { 'C:\ProgramData\scoop' }
 
 function Find-Aria2Dir {
     foreach ($root in @($script:ScoopRoot, $script:GlobalRoot)) {
@@ -122,8 +126,8 @@ function Show-Status {
         Write-Warn2 '  ghd        : not found — downloads will use the fallback engine'
     }
 
-    $uc = Join-Path $env:LOCALAPPDATA 'GhostDownloader\UserConfig.json'
-    if (Test-Path -LiteralPath $uc) {
+    $uc = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'GhostDownloader\UserConfig.json' } else { '' }
+    if ($uc -and (Test-Path -LiteralPath $uc)) {
         try {
             $j = Get-Content -LiteralPath $uc -Raw | ConvertFrom-Json
             Write-Host "  ghost proxy: $($j.GeneralDownload.ProxyServer) (Ghost's own setting; Scoop --all-proxy is not forwarded)"
@@ -195,7 +199,7 @@ function Invoke-Restore {
 }
 
 switch ($Command) {
-    'status'  { Show-Status }
-    'deploy'  { Invoke-Deploy }
-    'restore' { Invoke-Restore }
+    'status'  { Show-Status;   exit 0 }
+    'deploy'  { Invoke-Deploy; exit 0 }
+    'restore' { Invoke-Restore; exit 0 }
 }

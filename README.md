@@ -7,6 +7,11 @@ Scoop 无需任何改动；对 Scoop 来说它仍然是一个"aria2c.exe"。
 是 `myScoopTools` 工具套件（scoop-deepclean + aria2ghost）的源码仓库。
 打包设计与实现记录见 **[PACKAGING.md](PACKAGING.md)**（v1.2.0 已实现，模拟测试通过）。
 
+## v1.3.1 修复（2026-11-21）
+
+- `scoop-aria2ghost.ps1`: switch 分支补 `exit 0`，直接运行 .ps1 不再得到 `$LASTEXITCODE=-1`。
+- 两个脚本：`$env:USERPROFILE` / `$env:ProgramData` / `$env:LOCALAPPDATA` 缺失时不再抛 `Cannot bind argument to parameter 'Path'`（改用 `[Environment]::GetFolderPath` 与逐级回退），修复 `scoop uninstall myScoopTools` 的 pre_uninstall 崩溃。
+
 ## 工作原理
 
 ```
