@@ -7,6 +7,10 @@ Scoop 无需任何改动；对 Scoop 来说它仍然是一个"aria2c.exe"。
 是 `myScoopTools` 工具套件（scoop-deepclean + aria2ghost）的源码仓库。
 打包设计与实现记录见 **[PACKAGING.md](PACKAGING.md)**（v1.2.0 已实现，模拟测试通过）。
 
+## v1.3.2 修复（2026-11-21）
+
+- `scoop-aria2ghost.ps1`：新增 `Get-NativeFirstLine`，探测 `aria2c --version` / `ghd --version` 时把 `$ErrorActionPreference` 临时降为 `Continue` 并吞掉原生 stderr。此前若被探测的 exe 往 stderr 写东西（例如 ghd 的 Python 回溯），`$ErrorActionPreference='Stop'` 会把 `NativeCommandError` 变成终止错误，导致 `scoop-aria2ghost status` 直接退出 1；现在降级为提示「found but not runnable」。
+
 ## v1.3.1 修复（2026-11-21）
 
 - `scoop-aria2ghost.ps1`: switch 分支补 `exit 0`，直接运行 .ps1 不再得到 `$LASTEXITCODE=-1`。

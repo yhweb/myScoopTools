@@ -27,6 +27,24 @@ function Write-Ok($msg)    { Write-Host $msg -ForegroundColor Green }
 function Write-Warn2($msg) { Write-Host $msg -ForegroundColor Yellow }
 function Write-Err2($msg)  { Write-Host $msg -ForegroundColor Red }
 
+# Native calls may write to stderr (e.g. a broken ghd build); with
+# $ErrorActionPreference='Stop' that becomes a terminating NativeCommandError.
+# Probe helpers always degrade to a string instead of killing the whole command.
+function Get-NativeFirstLine([string]$Exe, [string[]]$Arguments) {
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $out = & $Exe @Arguments 2>&1
+        $line = @($out | Where-Object { $_ -is [string] } | Select-Object -First 1)
+        if ($line.Count -eq 0) { return '' }
+        return [string]$line[0]
+    } catch {
+        return ''
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
 # ---------- 路径解析 ----------
 $script:HomeDir = if ($env:USERPROFILE) { $env:USERPROFILE } else { [System.Environment]::GetFolderPath('UserProfile') }
 $script:CfgFile = Join-Path $script:HomeDir '.config\scoop\config.json'
@@ -52,8 +70,7 @@ function Find-Aria2Dir {
 
 function Get-EngineInfo([string]$Exe) {
     if (!(Test-Path -LiteralPath $Exe)) { return $null }
-    $line = ''
-    try { $line = [string](& $Exe --version 2>&1 | Select-Object -First 1) } catch { }
+    $line = Get-NativeFirstLine $Exe @('--version')
     $kind = 'unknown'
     if ($line -match 'ghost-shim')      { $kind = 'shim' }
     elseif ($line -match 'aria2-next')  { $kind = 'aria2-next' }
@@ -119,8 +136,9 @@ function Show-Status {
 
     $ghd = Find-Ghd
     if ($ghd) {
-        $gv = [string](& $ghd --version 2>&1 | Select-Object -First 1)
-        Write-Host "  ghd        : $gv"
+        $gv = Get-NativeFirstLine $ghd @('--version')
+        if ($gv) { Write-Host "  ghd        : $gv" }
+        else { Write-Warn2 '  ghd        : found but not runnable — downloads will use the fallback engine' }
         Write-Host "               $ghd"
     } else {
         Write-Warn2 '  ghd        : not found — downloads will use the fallback engine'
